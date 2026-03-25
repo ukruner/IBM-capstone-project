@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="UTF-8">
+<title>CONTACT US</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+
+<body>
+
+<div class="container">
+<p></p>
+<p></p>
+{% load static %}
+<h3>There are currently no reviews for the {{dealer_name}}<h3>
+<p></p>
+<p>If you would like to add a review, press on the button below:</p>
+<a href="{% url 'djangoapp:add_review' id %}" class="btn btn-primary">Add review</a>
+
+</div>
+
+</body>
+</html>

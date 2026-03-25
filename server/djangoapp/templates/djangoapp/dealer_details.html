@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dealership review list</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <link href="https://unpkg.com/bootstrap-table@1.18.2/dist/bootstrap-table.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/bootstrap-table@1.18.2/dist/bootstrap-table.min.js"></script>
+    <script src="https://unpkg.com/bootstrap-table@1.18.2/dist/extensions/filter-control/bootstrap-table-filter-control.min.js"></script>
+
+</head>
+    <body>
+        <nav class="navbar navbar-expand-sm navbar-light bg-success">
+            <div class="container-fluid">
+                <ul class="navbar-nav">
+                    <li class="nav-item"> 
+                        <a class="navbar-brand" href="/djangoapp">Car Dealership Drivaroo</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/djangoapp/about">About us</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/djangoapp/contact">Contact us</a>
+                    </li>
+                    {% if not user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/djangoapp/registration">Registration</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+            <div class="collapse navbar-collapse justify-content-end" id="navbarSupportedContent">
+                <ul class="navbar-nav text-nowrap">
+                    {% if user.is_authenticated %}
+                <li class="nav-item">
+                    <a class="nav-link active" href="{% url 'djangoapp:add_review' id %}">Add review</a>
+                </li>
+                <li>
+                    <a class="btn btn-link" href="#">{{ user.first_name }}({{ user.username }})</a>
+                    <a class="btn btn-link" href="{% url 'djangoapp:logout' %}">Logout</a>
+                </li>
+                {% else %}
+                <li>
+                    <form class="form-inline" action="{% url 'djangoapp:login' %}" method="post">
+                        {% csrf_token %}
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Username" name="username" >
+                            <input type="password" class="form-control" placeholder="Password" name="psw" >
+                            <button class="btn btn-primary" type="submit">Login</button>
+                            <a class="btn btn-link" href="{% url 'djangoapp:registration' %}">Sign Up</a>
+                        </div>
+                    </form>
+                </li>
+                {% endif %}		
+                </ul>		  
+            </div>
+        </nav>
+        {% load static %}
+            <p></p>
+            <p></p>
+            <div><h1>Reviews for {{dealer_name}}</h1></div>
+            <div class="card-columns p-5">
+            {% for review in reviews %}
+                <div class ='card-container'>
+                <div class='card'>
+                    <img class="card-img-left" src="{% if review.sentiment == 'positive' %}{{MEDIA_URL}}/emoji/positive.png
+                    {% elif review.sentiment == 'negative' %}{{MEDIA_URL}}/emoji/negative.png
+                    {% else %}{{MEDIA_URL}}/emoji/neutral.png{% endif %}" style="width: 10%;">
+                    <div class='card-header'>
+                        <h4><p>{{review.car_make}}, {{review.car_model}}</p>
+                        <p>{{review.car_year}}</p></h4>
+                        <p>{{review.review}}</p></div></div>
+            {% endfor %}  
+                        </div></div></div>
+    </body>
+</html>
