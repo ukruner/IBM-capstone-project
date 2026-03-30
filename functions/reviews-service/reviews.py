@@ -7,7 +7,7 @@ from flask import Flask, abort, jsonify, request
 from pymongo import MongoClient
 import certifi
 
-load_dotenv(os.getenv("DOTENV_PATH") or Path(__file__).resolve().parents[1] / ".env")
+load_dotenv(os.getenv("DOTENV_PATH") or Path(__file__).resolve().parents[2] / ".env")
 
 def sanitize_mongo_uri(uri):
     if not uri:

@@ -7,9 +7,9 @@ You must complete all the labs to successfully complete the project.
 
 ## Project Breakdown
 
-**Prework: Sign up for IBM Cloud account and create a Watson Natural language Understanding service**
-1. Create an IBM cloud account if you don't have one already.
-2. Create an instance of the Natural Language Understanding (NLU) service.
+**Prework: Configure local environment variables**
+1. Copy `.env.example` to `.env`.
+2. Add your MongoDB Atlas and API configuration values to `.env`.
 
 **Fork the project Github repository with a project then build and deploy the template project**
 1. Fork the repository in your account
@@ -22,7 +22,7 @@ You must complete all the labs to successfully complete the project.
 2. Set up continuous integration and delivery
 
 **Implement backend services**
-1. Create cloud functions to manage dealers and reviews
+1. Create backend services to manage dealers and reviews
 2. Create Django models and views to manage car model and car make
 3. Create Django proxy services and views to integrate dealers, reviews, and cars together
  
@@ -34,3 +34,9 @@ You must complete all the labs to successfully complete the project.
 **Containerize your application**
 1. Add deployment artifacts to your application
 2. Deploy your application
+
+## Local Notes
+
+- Sentiment analysis now uses a free local library instead of Watson NLU.
+- Dealer and review data should be stored in MongoDB Atlas.
+- Secrets and service URLs should be stored in `.env`, not hardcoded in source files.

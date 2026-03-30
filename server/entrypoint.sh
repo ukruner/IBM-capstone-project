@@ -1,17 +1,10 @@
-    #!/bin/sh
+#!/bin/sh
+set -e
 
-    if [ "$DATABASE" = "postgres" ]; then
-        echo "Waiting for postgres..."
+echo "Applying Django migrations"
+python manage.py migrate --noinput
 
-        while ! nc -z $DATABASE_HOST $DATABASE_PORT; do
-        sleep 0.1
-        done
+echo "Collecting static files"
+python manage.py collectstatic --noinput
 
-        echo "PostgreSQL started"
-    fi
-
-    # Make migrations and migrate the database.
-    echo "Making migrations and migrating the database. "
-    python manage.py makemigrations main --noinput
-    python manage.py migrate --noinput
-    exec "$@"
+exec "$@"

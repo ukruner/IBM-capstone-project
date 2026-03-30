@@ -12,9 +12,15 @@ import requests
 from .restapis import get_dealers_from_cf, get_reviews_from_cf, post_request, analyze_review_sentiments
 import logging
 import json
+import os
+from dotenv import load_dotenv
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
+load_dotenv()
+
+DEALERSHIP_API_URL = os.getenv("DEALERSHIP_API_URL", "http://localhost:3000/api/dealership")
+REVIEW_API_URL = os.getenv("REVIEW_API_URL", "http://localhost:5000/api/review")
 
 
 # Create your views here.
@@ -83,7 +89,7 @@ def get_dealerships(request):
     if request.method == "GET":
         id = request.GET.get('id', '')  # Get id from request.GET, default to empty string if not provided
         state = request.GET.get('state', '')
-        url = f"https://urmaskryner-3000.theiadockernext-1-labs-prod-theiak8s-4-tor01.proxy.cognitiveclass.ai/api/dealership?id={id}&state={state}"
+        url = f"{DEALERSHIP_API_URL}?id={id}&state={state}"
         # Get dealers from the URL
         dealerships = get_dealers_from_cf(url)
         # Concat all dealer's short name
@@ -94,22 +100,25 @@ def get_dealerships(request):
 
 
 def get_dealerships_by_id(id):
-        url = f"https://urmaskryner-3000.theiadockernext-1-labs-prod-theiak8s-4-tor01.proxy.cognitiveclass.ai/api/dealership?id={id}"
+        url = f"{DEALERSHIP_API_URL}?id={id}"
         # Get dealers from the URL
         dealerships = get_dealers_from_cf(url)
-        # Concat all dealer's short name
-        dealer_name = dealerships[0]
-        # Return a list of dealer short name
-        return dealer_name
+        if not dealerships:
+            return None
+        return dealerships[0]
 
 def review_template(request, id):
      
         dealerships = get_dealerships_by_id(id)
 
 def add_review(request, id):
-    url = 'https://urmaskryner-5000.theiadockernext-1-labs-prod-theiak8s-4-tor01.proxy.cognitiveclass.ai/api/review'
+    url = REVIEW_API_URL
     context = {}
-    dealer_name = get_dealerships_by_id(id).full_name
+    dealer = get_dealerships_by_id(id)
+    if not dealer:
+        context['message'] = "Dealer not found."
+        return render(request, 'djangoapp/noreviews.html', context)
+    dealer_name = dealer.full_name
     context['dealer_name']=dealer_name
     context['dealer_id']=id
     if request.method == 'POST':
@@ -160,11 +169,14 @@ def add_review(request, id):
 def get_reviews(request, id):
     if request.method == "GET":
         # id = request.GET.get('id')  
-        url = f"https://urmaskryner-5000.theiadockernext-1-labs-prod-theiak8s-4-tor01.proxy.cognitiveclass.ai/api/review?id={id}"
+        url = f"{REVIEW_API_URL}?id={id}"
         # Get dealers from the URL
         context={}
-        dealer_name = get_dealerships_by_id(id)
-        context["dealer_name"]=dealer_name
+        dealer = get_dealerships_by_id(id)
+        if not dealer:
+            context["dealer_name"] = "Selected dealership"
+            return render(request, 'djangoapp/noreviews.html', context)
+        context["dealer_name"]=dealer
         context["id"]=id
         reviews = get_reviews_from_cf(url)
         if reviews:
@@ -184,4 +196,3 @@ def contact_us(request):
     context = {}
     if request.method == "GET":
         return render(request, 'djangoapp/contact.html', context)
-

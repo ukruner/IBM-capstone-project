@@ -1,106 +1,155 @@
-import requests
 import json
-from .models import CarDealer, CarReview
-from requests.auth import HTTPBasicAuth
-from django.http import HttpResponseRedirect, HttpResponse, HttpResponseBadRequest
-from ibm_watson import NaturalLanguageUnderstandingV1
-from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
-from ibm_watson.natural_language_understanding_v1 \
-    import Features, SentimentOptions, EntitiesOptions, KeywordsOptions
+import os
 
+import requests
+from dotenv import load_dotenv
+from django.http import HttpResponse, HttpResponseBadRequest
+from requests.auth import HTTPBasicAuth
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+from .models import CarDealer, CarReview
+
+
+load_dotenv()
+
+CF_API_KEY = os.getenv("CF_API_KEY")
+sentiment_analyzer = SentimentIntensityAnalyzer()
 
 
 def get_request(url, auth=None, **kwargs):
     print(kwargs)
     print("GET from {} ".format(url))
     try:
-        # if api_key:
-        # Call get method of requests library with URL and parameters
-        response = requests.get(url, headers={'Content-Type': 'application/json'}, auth=HTTPBasicAuth('apikey', 'h6OLXbfGGoKT14A9zpZsPIupGnKUeBaas_EqTfHPNOhn'),
-                                    params=kwargs)
-        # else:
-        #     response = requests.get(url, headers={'Content-Type': 'application/json'},
-        #                             params=kwargs)
+        request_kwargs = {
+            "headers": {"Content-Type": "application/json"},
+            "params": kwargs,
+        }
+        if CF_API_KEY:
+            request_kwargs["auth"] = HTTPBasicAuth("apikey", CF_API_KEY)
+        response = requests.get(url, **request_kwargs)
+    except Exception as error:
+        print(f"Network exception occurred: {error}")
+        return None
 
-    except:
-        # If any error occurs
-        print("Network exception occurred")
-    status_code = response.status_code
-    print("With status {} ".format(status_code))
-    json_data = json.loads(response.text)
+    print("With status {} ".format(response.status_code))
+    try:
+        json_data = response.json()
+    except ValueError:
+        print("Response did not contain valid JSON")
+        return None
+
+    if response.status_code >= 400:
+        print(f"Request returned error payload: {json_data}")
+        return None
+
     return json_data
 
 
 def get_dealers_from_cf(url, **kwargs):
     results = []
-    # Call get_request with a URL parameter
-    json_result = get_request(url)
-    if json_result:
-        # Get the row list in JSON as dealers
-        dealers = json_result
-        # For each dealer object
-        for dealer in dealers:
-            # Get its content in `doc` object
-            dealer_doc = dealer
-            print("Dealer",dealer_doc)
-            # Create a CarDealer object with values in `doc` object
-            dealer_obj = CarDealer(address=dealer_doc["address"], city=dealer_doc["city"], full_name=dealer_doc["full_name"],
-                                   id=dealer_doc["id"], lat=dealer_doc["lat"], long=dealer_doc["long"],
-                                   short_name=dealer_doc["short_name"],
-                                   st=dealer_doc["st"], zip=dealer_doc["zip"], state=dealer_doc['state'])
+    json_result = get_request(url, **kwargs)
+    dealer_documents = []
+    if isinstance(json_result, list):
+        for dealer_doc in json_result:
+            if isinstance(dealer_doc, dict) and isinstance(dealer_doc.get("dealerships"), list):
+                dealer_documents.extend(dealer_doc["dealerships"])
+            else:
+                dealer_documents.append(dealer_doc)
+    elif isinstance(json_result, dict) and isinstance(json_result.get("dealerships"), list):
+        dealer_documents = json_result["dealerships"]
+
+    if dealer_documents:
+        for dealer_doc in dealer_documents:
+            if not isinstance(dealer_doc, dict):
+                print(f"Skipping unexpected dealer payload: {dealer_doc}")
+                continue
+            print("Dealer", dealer_doc)
+            dealer_obj = CarDealer(
+                address=dealer_doc["address"],
+                city=dealer_doc["city"],
+                full_name=dealer_doc["full_name"],
+                id=dealer_doc["id"],
+                lat=dealer_doc["lat"],
+                long=dealer_doc["long"],
+                short_name=dealer_doc["short_name"],
+                st=dealer_doc["st"],
+                zip=dealer_doc["zip"],
+                state=dealer_doc["state"],
+            )
             results.append(dealer_obj)
+    elif json_result is not None:
+        print(f"Unexpected dealers response shape: {json_result}")
 
     return results
 
+
 def get_reviews_from_cf(url, **kwargs):
     results = []
-    keylist = ['dealership', 'name', 'time', 'id', 'review', 'purchase', 'purchase_date', 'car_make', 'car_model', 'car_year']
-    # Call get_request with a URL parameter
+    keylist = [
+        "dealership",
+        "name",
+        "time",
+        "id",
+        "review",
+        "purchase",
+        "purchase_date",
+        "car_make",
+        "car_model",
+        "car_year",
+    ]
     try:
-        json_result = get_request(url, id)
-        if json_result:
-            # Get the row list in JSON as reviews
-            reviews = json_result
-            # For each dealer object
-            for review in reviews:
-                for k in keylist:
-                    if k not in review.keys():
-                        review[k]=''
-                # Get its content in `doc` object
-                review_obj = review
-                print("Review", review_obj)
-                # Create a CarDealer object with values in `doc` object
-                review_new = CarReview(dealership=review_obj['dealership'],
-                name=review_obj['name'],
-                id=review_obj['id'],
-                review=review_obj['review'],
-                purchase=review_obj['purchase'],
-                purchase_date=review_obj['purchase_date'],
-                car_make=review_obj['car_make'],
-                car_model=review_obj['car_model'],
-                car_year=review_obj['car_year'],
-                time=review_obj['time'],
-                sentiment=analyze_review_sentiments(review_obj['review']))
-                print(review_obj['review'])
+        json_result = get_request(url, **kwargs)
+        review_documents = []
+        if isinstance(json_result, list):
+            for review in json_result:
+                if isinstance(review, dict) and isinstance(review.get("reviews"), list):
+                    review_documents.extend(review["reviews"])
+                else:
+                    review_documents.append(review)
+        elif isinstance(json_result, dict) and isinstance(json_result.get("reviews"), list):
+            review_documents = json_result["reviews"]
+
+        if review_documents:
+            for review in review_documents:
+                if not isinstance(review, dict):
+                    print(f"Skipping unexpected review payload: {review}")
+                    continue
+                for key in keylist:
+                    if key not in review:
+                        review[key] = ""
+
+                print("Review", review)
+                review_new = CarReview(
+                    dealership=review["dealership"],
+                    name=review["name"],
+                    id=review["id"],
+                    review=review["review"],
+                    purchase=review["purchase"],
+                    purchase_date=review["purchase_date"],
+                    car_make=review["car_make"],
+                    car_model=review["car_model"],
+                    car_year=review["car_year"],
+                    time=review["time"],
+                    sentiment=analyze_review_sentiments(review["review"]),
+                )
+                print(review["review"])
                 results.append(review_new)
             return results
-    except:
+        # if json_result is not None:
+        #     print(f"Unexpected reviews response shape: {json_result}")
+        #     return []
+    except Exception:
         return None
-    
 
-# Create a `post_request` to make HTTP POST requests
-# e.g., response = requests.post(url, params=kwargs, json=payload)
 
 def post_request(url, data):
-    required_fields = ['id', 'name', 'dealership', 'review']
+    required_fields = ["id", "name", "dealership", "review"]
 
     try:
         datajson = json.loads(data)
     except json.JSONDecodeError:
         return HttpResponseBadRequest("Invalid JSON data")
 
-    # headers = {'Content-Type': 'application/json'}
- 
     if not datajson:
         return HttpResponseBadRequest("JSON data missing")
 
@@ -110,60 +159,22 @@ def post_request(url, data):
 
     try:
         response = requests.post(url, json=datajson)
-        response.raise_for_status()  # Raise an error for non-2xx status codes
-    except requests.RequestException as e:
-        return HttpResponse(f"Failed to post review: {e}", status=500)
+        response.raise_for_status()
+    except requests.RequestException as error:
+        return HttpResponse(f"Failed to post review: {error}", status=500)
 
     return HttpResponse("Review posted successfully")
 
-# def post_request(url, data):
-#     required_fields = ['id', 'name', 'dealership', 'review', 'purchase', 'time']
-#     datajson=json.loads(data)
-#     # print(data)
-#     headers = {'Content-Type': 'application/json'}
-#     if not data:
-#         return HttpResponseBadRequest("JSON data missing")
-
-#     # Validate that the required fields are present in the review data
-#     else:
-#         for field in required_fields:
-#             if field not in datajson.keys():
-#                 return HttpResponseBadRequest(f"{field} is a required field, and it is missing")
-#     response = requests.post(url, headers=headers, json=datajson)
-#     return HttpResponse ("review posted successfully")
-
-    # Save the review data as a new document in the Cloudant database
-
-# Create an `analyze_review_sentiments` method to call Watson NLU and analyze text
-# def analyze_review_sentiments(text):
-# - Call get_request() with specified arguments
-# - Get the returned sentiment label such as Positive or Negative
-
 
 def analyze_review_sentiments(dealerreview):
-    authenticator = IAMAuthenticator('h6OLXbfGGoKT14A9zpZsPIupGnKUeBaas_EqTfHPNOhn')
-    natural_language_understanding = NaturalLanguageUnderstandingV1(
-    version='2022-04-07',
-    authenticator=authenticator)
+    if not dealerreview:
+        return "neutral"
 
-    natural_language_understanding.set_service_url('https://api.eu-gb.natural-language-understanding.watson.cloud.ibm.com/instances/5cab2d96-30be-48f9-9c7f-3f040d30a079')
-    if len(dealerreview) < 20:
-        return {"error": "Text is too short to analyze"}
-    else:
-        response = natural_language_understanding.analyze(
-        text=dealerreview,
-        features=Features(
-            entities=EntitiesOptions(emotion=True, sentiment=True, limit=2),
-            keywords=KeywordsOptions(emotion=True, sentiment=True,
-                                    limit=2))).get_result()
+    sentiment_scores = sentiment_analyzer.polarity_scores(dealerreview)
+    compound_score = sentiment_scores["compound"]
 
-        print(json.dumps(response, indent=2))
-        sentiment_response = response['keywords'][0]['sentiment']['label']
-        return sentiment_response
-
-
-
-
-
-
-
+    if compound_score >= 0.05:
+        return "positive"
+    if compound_score <= -0.05:
+        return "negative"
+    return "neutral"

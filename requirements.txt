@@ -2,7 +2,8 @@ requests
 django
 Pillow
 gunicorn
-ibm-watson
-cloudant
 flask
-ibm_cloud_sdk_core
+dnspython
+pymongo
+python-dotenv
+vaderSentiment
